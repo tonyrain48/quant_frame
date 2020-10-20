@@ -1,0 +1,184 @@
+<project>
+    <config>
+        <args>
+            <user_name type="str">jinxing</user_name>
+            <project_name type="str">PVDailyNew</project_name>
+            <log_level type="str">info</log_level>
+            <stock_path_template type="literal">os.path.join(DATA_BASE_DIR, "cooked/BaseData/{}/{}/{}/BASEDATA.txt")</stock_path_template>
+            <index_path_template type="literal">os.path.join(DATA_BASE_DIR, "raw/WIND/IndexQuote/{}/{}/{}/AINDEXEODPRICES.txt")</index_path_template>
+        </args>
+    </config>
+    <universe>
+        <args>
+            <user_name type="ref_object">user_name</user_name>
+            <project_name type="ref_object">project_name</project_name>
+            <required_data_sources type="List[str]">Stock,Index</required_data_sources>
+            <start_date type="date">2012-01-01</start_date>
+            <end_date type="date">2017-06-30</end_date>
+            <back_days type="int">60</back_days>
+            <end_days type="int">0</end_days>
+        </args>
+    </universe>
+    <data_loaders>
+        <data_loader source="public" module="dl_base_data" class="BaseDataLoader">
+            <args>
+                <data_loader_name type="str">base_data_loader</data_loader_name>
+                <path_templates type="List[ref_object]">stock_path_template,index_path_template</path_templates>
+                <dims_to_load type="List[str]">CLOSEPRICE,S_DQ_CLOSE,SPLIT,DIVIDEND,ACTUALPLARATIO,PLAPRICE,TURNOVERVOLUME,TRADESTATE,TURNOVERVALUE,TOTALSHARES</dims_to_load>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_adjfactor" class="AdjFactorDimDataLoader">
+            <args>
+                <data_loader_name type="str">adjfactor_data_loader</data_loader_name>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_adv" class="AdjVolumeDimDataLoader">
+            <args>
+                <data_loader_name type="str">adv60_data_loader</data_loader_name>
+                <days type="int">60</days>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_return" class="ReturnDimDataLoader">
+            <args>
+                <data_loader_name type="str">return_data_loader</data_loader_name>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_topliquid" class="TopLiquidDataLoader">
+            <args>
+                <data_loader_name type="str">top300_data_loader</data_loader_name>
+                <required_dims type="List[str]"></required_dims>
+                <new_dims type="List[str]">TOP300</new_dims>
+                <WindowDays type="int">60</WindowDays>
+                <Lookback type="int">40</Lookback>
+                <Passrate type="int">100</Passrate>
+                <Sticky type="int">40</Sticky>
+                <Delta type="float">0.1</Delta>
+                <top type="str">300</top>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_topliquid" class="TopLiquidDataLoader">
+            <args>
+                <data_loader_name type="str">top1500_data_loader</data_loader_name>
+                <required_dims type="List[str]"></required_dims>
+                <new_dims type="List[str]">TOP1500</new_dims>
+                <WindowDays type="int">60</WindowDays>
+                <Lookback type="int">40</Lookback>
+                <Passrate type="int">100</Passrate>
+                <Sticky type="int">40</Sticky>
+                <Delta type="float">0.1</Delta>
+                <top type="str">1500</top>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_indexwgt" class="IndexWeightDataLoader">
+            <args>
+                <data_loader_name type="str">hs300_weight_data_loader</data_loader_name>
+                <path_templates type="List[str]">/data/raw/WIND/IndexWeight/{}/{}/{}/AINDEXHS300CLOSEWEIGHT.txt</path_templates>
+                <dims_to_load type="List[str]">WEIGHT</dims_to_load>
+                <dim_to_new_name type="Map[str|str]">WEIGHT:WEIGHT300</dim_to_new_name>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_indexwgt" class="IndexWeightDimDataLoader">
+            <args>
+                <data_loader_name type="str">hs300_weight_valid_data_loader</data_loader_name>
+                <required_dims type="List[str]">WEIGHT300</required_dims>
+                <new_dims type="List[str]">HS300_WEIGHT,HS300_VALID</new_dims>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_combo" class="ComboInstrumentPool">
+            <args>
+                <data_loader_name type="str">combo1500_data_loader</data_loader_name>
+                <required_dims type="List[str]">TOP1500,HS300_VALID</required_dims>
+                <new_dims type="List[str]">COMBO1500</new_dims>
+                <combo_rules type="str">union</combo_rules>
+                <combo_list type="List[bool]">True,True</combo_list>
+            </args>
+        </data_loader>
+        <data_loader source="public" module="dl_industry" class="IndustryDataLoader">
+            <args>
+                <data_loader_name type="str">industry_loader</data_loader_name>
+                <path_templates type="List[str]">/data/cooked/Industry/{}/{}/{}/Industry.txt</path_templates>
+                <dims_to_load type="List[str]">ZXS</dims_to_load>
+            </args>
+        </data_loader>
+    </data_loaders>
+    <operations>
+        <operation source="public" module="op_power" class="OpPower">
+            <name type="str">op_power_type_1_power_1_5</name>
+            <args>
+                <rank_type type="int">1</rank_type>
+                <power type="float">1.5</power>
+            </args>
+        </operation>
+        <operation source="public" module="op_decay" class="OpDecay">
+            <name type="str">op_decay</name>
+            <args>
+                <decay_weight type="literal">[5-i for i in range(5)]</decay_weight>
+            </args>
+        </operation>
+        <operation source="public" module="op_neutral" class="OpNeutral">
+            <name type="str">op_neutral_zxs</name>
+            <args>
+                <neutral_industry type="str">ZXS</neutral_industry>
+            </args>
+        </operation>
+        <operation source="public" module="op_neutral" class="OpNeutral">
+            <name type="str">op_neutral_zxs_market_neutral</name>
+            <args>
+                <neutral_industry type="str">ZXS</neutral_industry>
+                <market_neutral type="bool">True</market_neutral>
+            </args>
+        </operation>
+        <operation source="public" module="op_section" class="OpSection">
+            <name type="str">op_section</name>
+            <args>
+                <q type="int">10</q>
+            </args>
+        </operation>
+    </operations>
+    <alphas>
+        <alpha source="custom" path="/home/admin/xml_test/alpha_ndr.py" class="AlphaNDR">
+            <args>
+                <alpha_name type="str">alpha_5DR_COMBO1500</alpha_name>
+                <required_dims type="List[str]">ZXS</required_dims>
+                <instrument_pool type="str">COMBO1500</instrument_pool>
+                <days type="int">5</days>
+                <op_list type="List[ref_object]">op_power_type_1_power_1_5,op_decay,op_neutral_zxs</op_list>
+            </args>
+        </alpha>
+        <alpha source="custom" path="/home/admin/xml_test/alpha_ndr.py" class="AlphaNDR">
+            <args>
+                <alpha_name type="str">alpha_5DR_sec</alpha_name>
+                <required_dims type="List[str]">ZXS</required_dims>
+                <instrument_pool type="str">COMBO1500</instrument_pool>
+                <days type="int">5</days>
+                <op_list type="List[ref_object]">op_section,op_neutral_zxs_market_neutral</op_list>
+            </args>
+        </alpha>
+        <alpha source="custom" path="/home/admin/xml_test/alpha_ndr.py" class="AlphaNDR">
+            <args>
+                <alpha_name type="str">alpha_5DR_COMBO1500_delay</alpha_name>
+                <required_dims type="List[str]">ZXS</required_dims>
+                <instrument_pool type="str">COMBO1500</instrument_pool>
+                <days type="int">5</days>
+                <op_list type="List[ref_object]">op_power_type_1_power_1_5</op_list>
+                <delay type="int">10</delay>
+            </args>
+        </alpha>
+    </alphas>
+    <trade_and_stats_engine source="public" module="trade_and_stats" class="TradeAndStatsSimple" >
+        <name type="str">trade_and_stats</name>
+        <args>
+            <pnl_sub_path type="str"></pnl_sub_path>
+        </args>
+    </trade_and_stats_engine>
+    <back_test_engine source="public" module="backtest" class="BackTestEngine">
+        <name type="str">back_test_engine</name>
+        <args>
+            <size type="float">2E8</size>
+            <multiple type="float">100.0</multiple>
+            <trade_cost type="float">0.0</trade_cost>
+            <test_alphas type="List[ref_object]">alpha_5DR_COMBO1500_delay</test_alphas>
+            <trade_and_stats_engine type="ref_object">trade_and_stats</trade_and_stats_engine>
+        </args>
+    </back_test_engine>
+</project>
